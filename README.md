@@ -1,41 +1,76 @@
-# Iterables and Iterators (Part 1)
+# Iterables and Iterators (Part 2)
 
-In Python, iterables are objects that allow retrieval of its members one element at a time. Upon passing an iterable to built-in `iter()` method in Python, the iterable object returns an iterator. The most important property of an iterable is that it should not get exhausted upon completing iteration.
-
-Iterators on the other hand are objects that represent a batch or group of elements. These elements can be iterated over by calling `__next__()` method.  Iterators will exhaust upon completing iteration over the elements and must raise __StopIteration__ error upon exhausting all the elements.
-
-To prevent exhaustion of __iterables__, it is necessary that such containers/objects must return a new iterator when iterables are passed to an *iter()* function.
+Lazy iterables is an important concept that allow objects to be created only when the need arises i.e only when requested for the next object in the collection. This mechanism i.e lazy evaluation prevents pre-allocation of  memory, thereby saving memory and CPU time unless the need arises for using them explicitly. Generators are the simplest example of lazy iteration. 
 
 ```
 Sample:
-list_s = [0,2.9, 30]
-l_iter = iter(list_s)
-while True:
-    try:
-        print(next(l_iter))
-    except StopIteration:
-        break
+def generate_numbers(min_value, max_value):
+    while min_value < max_value:
+        yield min_value
+        min_value += 1
+
+numbers = generate_numbers(10, 20)
+print(type(numbers))
+print(next(numbers))
+print(next(numbers))
+print(next(numbers)
 ```
 
 **[Colab Link](https://colab.research.google.com/drive/1W8XivyHSMq1OxkOncD6qPXHzwNVvxtZK?usp=sharing)**
 
 ## TASKS
 
-### Implement a Custom Polygon sequence type
+### 1. Refactor the `ConvexPolygon` class so that all the calculated properties are lazy properties
 
-1. Implement a Custom Polygon sequence type:
-   1. where initializer takes in:
-      1. number of vertices for largest polygon in the sequence
-      2. common circumradius for all polygons
-   2. that can provide these properties:
-      1. max efficiency polygon: returns the Polygon with the highest **area to perimeter** ratio
-   3. that has these functionalities:
-      1. functions as a sequence type (`__getitem__`)
-      2. supports the len() function (`__len__`)
-      3. has a proper representation (`__repr__`)
-      4. Is also an iterable and implements an iterator.
+To achieve this we convert all the class variables in to property methods that are calculated when they are called.
 
-### Solution
+    @property
+    def get_vertices(self):
+        '''
+        Property: number of vertices of the polygon
+        '''
+    @property
+    def get_edges(self):
+        '''
+        Property: number of edges of the polygon
+        return self._n_sides    
+    @property
+    def get_circumradius(self):
+        '''
+        Property: circumradius of the polygon
+        '''
+    @property
+    def get_interior_angle(self):
+        '''
+        Property: number of interior angles of the polygon
+        '''
+    @property
+    def get_length_of_side(self):
+        '''
+        Property: length of one side of the polygon
+        '''
+    @property
+    def get_apothem(self):
+        ''''
+        Property: Length of apothem of the polygon
+        '''
+    @property
+    def get_area(self):
+        ''''
+        Property: Area of the polygon
+        '''        
+    @property
+    def get_perimeter(self):
+        '''
+        Property: Perimeter of the polygon
+        '''
+
+### 2. Refactor the `PolygonSequences` (sequence) type, into an **iterable**  and the elements in the iterator must be computed lazily
+
+To achieve lazy evaluation, we do the following:
+
+1. All the precomputation is removed from the `__init__` function and only the max length/count for the iterable object is stored
+2. From` __getitem__` method we invoke memoized static method `_polygonator`based on the index/slice requested
 
 ```
 class PolygonSequences():
@@ -46,23 +81,23 @@ class PolygonSequences():
     '''
 ```
 
-This is the primary class  whose `__init__` function takes two arguments the number of edges and the circumradius. Here number of edges will be used to generate a sequence of all the *ConvexPolygon* objects between 3 and number of max edges. Each object will have ofcourse use the same circumradius. To support indexing and slicing, `__getitem__` method is explicitly implemented. 
-
 ```
     def __getitem__(self, s):
         '''
         Allows for proper iteration of the sequence.
         '''
-     
-```
-
-Another important function that is implemented is the `get_max_efficiency_poly`. This function returns the polygon with the maximum ratio of area to perimeter amongst all the polygons in the sequence.
-
-```
-    def get_max_efficiency_poly(self):
-        '''
-        Returns the max efficient polygon. We can make a simple hack to use the one with largest number of edges.
-        '''
+        if isinstance(s, int):
+            if s < 0:
+                s = self.__len__() + s
+            if s < 0 or s >=self.__len__():
+                raise IndexError(f"Invalid Index.")
+            else:
+                return PolygonSequences._polygonator(s+3, self.__circumradius)
+#                 return self._offset_to_polysides[s]
+        else:
+#             print(type(s))
+            start, stop, step = s.indices(self.__len__())
+            return [PolygonSequences._polygonator(i+3, self.__circumradius) for i in range(start, stop, step)]     
 ```
 
 We make the class PolygonSequences **iterable** by implementing an *iterator* within the PolygonSequences class and by implementing an `__iter__()` method that returns a new iterator.
@@ -72,7 +107,7 @@ We make the class PolygonSequences **iterable** by implementing an *iterator* wi
         The iterator class over Polygon sequence that converts it into an iterable.
         Implements __next__ and __iter__ functions.
         '''
-        def __init__(self, polygon_sq_obj):
+        def __init__(self, n_sides, circumradius):
         #print("Calling PolygonSqIterator __init__")
             self.polygon_sq_obj = polygon_sq_obj
             self._index = 0
@@ -88,6 +123,22 @@ We make the class PolygonSequences **iterable** by implementing an *iterator* wi
         '''
         return self.PolygonSqIterator(self) 
 ```
+
+Further we modify the `get_max_efficiency_poly` function to evaluate lazily based on loop/request.
+
+```
+    def get_max_efficiency_poly(self):
+        '''
+        Returns the max efficient polygon. We can make a simple hack to use the one with largest number of edges.
+        '''
+        self_poly_iter = iter(self)
+        sorted_polygons = sorted(self_poly_iter, 
+                                 key=lambda x: x.get_area/x.get_perimeter,
+                                reverse=True)
+        return sorted_polygons[0] 
+```
+
+
 
 ## User Details:
 
