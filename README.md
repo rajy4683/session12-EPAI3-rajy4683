@@ -16,7 +16,7 @@ print(next(numbers))
 print(next(numbers)
 ```
 
-**[Colab Link](https://colab.research.google.com/drive/1W8XivyHSMq1OxkOncD6qPXHzwNVvxtZK?usp=sharing)**
+**[Colab Link](https://colab.research.google.com/drive/1q4IWaEZRibOjI-SeHNIeqVvwJkBPy3eJ?usp=sharing)**
 
 ## TASKS
 
